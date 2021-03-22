@@ -8,39 +8,55 @@
 
 #define errExit(msg) do{ perror(msg); exit(EXIT_FAILURE); } while(0)
 
+// Globals
+char _F[MAX_PATH],	// File name regex
+     _P[PERMS_LEN],	// File permissions
+     _T = 'x';		// File type
+
+
+int _B = -1,		// File size in bytes
+    _L = -1;		// File links(#)
+
+int opt_B = 0, opt_T = 0, opt_P = 0, opt_L = 0, opt_F = 0;
+
+
 // Function Prototypes
+
+// Input validation and informational prints
 void print_usage(void);
+void print_inputs(void);
+int input_exists();
+
+// Helper & Misc. functions
 int find_str(char* haystack, char* needle);
 
 int main(int argc, char* argv[])  {
+	int option;
 
-    char filename_regex[MAX_PATH],
-         perms[PERMS_LEN],
-         fie_type = 'x';
-    
-    int option,
-        size_bytes = -1,
-        links = -1;
-
-    snprintf(filename_regex,MAX_PATH,"%s","---");
-    snprintf(perms,PERMS_LEN,"%s","---");
+    snprintf(_F,MAX_PATH,"%s","---");
+    snprintf(_P,PERMS_LEN,"%s","---");
     
     while((option = getopt(argc, argv, "f:b:t:p:l:")) != -1){ //get option from the getopt() method
         switch(option){
             case 'b':
-                size_bytes = atoi(optarg);
+            	opt_B = 1;
+                _B = atoi(optarg);
                 break;
             case 't':
-                fie_type = optarg[0];
+            	opt_T = 1;
+                _T = optarg[0];
                 break;
             case 'p':
-                snprintf(perms,PERMS_LEN,"%s",optarg);
+            	opt_P = 1;
+                snprintf(_P,PERMS_LEN,"%s",optarg);
                 break;
             case 'l':
-                links = atoi(optarg);
+            	opt_L = 1;
+                _L = atoi(optarg);
                 break;
             case 'f':
-                snprintf(filename_regex,MAX_PATH,"%s",optarg);
+            	opt_F = 1;
+                snprintf(_F,MAX_PATH,"%s",optarg);
                 break;
             default:
                 print_usage(); exit(EXIT_FAILURE);
@@ -50,18 +66,16 @@ int main(int argc, char* argv[])  {
     for(; optind < argc; optind++) //when some extra arguments are passed
         fprintf(stderr,"Given extra arguments: %s\n", argv[optind]);
     
+    if(!input_exists()){
+    	printf("No valid inputs given. Please read the usage information...\n");
+    	print_usage();
+    	exit(EXIT_FAILURE);
+    }
+
+    print_inputs();
+
     
-    printf("Inputs:\n"
-           "File name(f):   %s\n"
-           "File size(b):   %d %s\n"
-           "File type(t):   %c\n"
-           "Permissions(p): %s\n"
-           "links(l):       %d %s\n"
-           ,filename_regex, size_bytes,size_bytes == -1 ? "(Not specified)" : "", fie_type, perms,links, links == -1 ? "(Not specified)" : "");
-
-
-    printf("Perms Null?: %d\n", strlen(perms) <= 0);
-    find_str("char* haystack", filename_regex);
+    find_str("char* haystack", _F);
     
     return 0;
 }
@@ -69,7 +83,7 @@ int main(int argc, char* argv[])  {
 void print_usage(void){
     printf("========================================\n");
     printf("Usage:\n"
-           "./myFind [-f filename] [-b file size(bytes)] [-t file type] [-p permissions] [-l # of links]\n\n");
+           "./myFind [-f filename] [-b file size(bytes)] [-t file type] [-p permissions] [-l # of _L]\n\n");
     printf("-f : supporting the following regular expression(s): +\n"
            "-t :     d: directory\n\t s: socket\n\t b: block device\n\t c: character device\n\t f: regular file\n\t p: pipe\n\t l: symbolic link\n"
            "-p : 9 characters (e.g. ‘rwxr-xr--’)\n");
@@ -77,6 +91,25 @@ void print_usage(void){
     printf("========================================\n");
 }
 
+void print_inputs(void){
+	printf("Inputs:\n");
+	if(opt_F)
+		printf("File name(f):   %s\n", _F);
+	if(opt_B)
+		printf("File size(b):   %d\n", _B);
+	if(opt_T)
+		printf("File type(t):   %c\n", _T);
+	if(opt_P)
+		printf("Permissions(p): %s\n", _P);
+	if(opt_L)
+		printf("links(l):       %d\n", _L);
+
+	return;
+}
+
+int input_exists(){
+	return opt_F || opt_B || opt_T || opt_P || opt_L;
+}
 
 int find_str(char* haystack, char* needles){
 	char *p = strtok(needles, "+");
@@ -86,6 +119,8 @@ int find_str(char* haystack, char* needles){
 	}
 	return 0;
 }
+
+
 
 
 
