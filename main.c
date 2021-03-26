@@ -1,23 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>  
 #include <unistd.h>  
+#include <sys/types.h>
+#include <dirent.h>
+#include <string.h>
+
 
 #define MAX_PATH 255   // Input file path
 #define PERMS_LEN 10	// # of file permissions
 
 #define errExit(msg) do{ perror(msg); exit(EXIT_FAILURE); } while(0)
-
-// Globals
-char _W[MAX_PATH],
-	 _F[MAX_PATH],	// File name regex
-     _P[PERMS_LEN],	// File permissions
-     _T = 'x';		// File type
-
-
-int _B = -1,		// File size in bytes
-    _L = -1;		// File links(#)
-
-int opt_B = 0, opt_T = 0, opt_P = 0, opt_L = 0, opt_F = 0, opt_W;
 
 
 // Function Prototypes
@@ -33,6 +25,19 @@ int input_exists();
 void to_lower_case(char* str);
 int str_cmp(char* str1, char* str2);
 
+void listdir(const char *name, int indent);
+
+// Globals
+char _W[MAX_PATH],
+	 _F[MAX_PATH],	// File name regex
+     _P[PERMS_LEN],	// File permissions
+     _T = 'x';		// File type
+
+
+int _B = -1,		// File size in bytes
+    _L = -1;		// File links(#)
+
+int opt_B = 0, opt_T = 0, opt_P = 0, opt_L = 0, opt_F = 0, opt_W;
 
 int main(int argc, char* argv[])  {
 	int option;
@@ -89,6 +94,8 @@ int main(int argc, char* argv[])  {
     char str2[] = "Mraz";
     printf("result: %d\n", str_cmp(str1, str2));
 
+    listdir(".", 0);
+
     return 0;
 }
 
@@ -143,7 +150,28 @@ void to_lower_case(char* str){
 	}
 }
 
+void listdir(const char *name, int indent)
+{
+    DIR *dir;
+    struct dirent *entry;
 
+    if (!(dir = opendir(name)))
+        return;
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_DIR) {
+            char path[1024];
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+                continue;
+            snprintf(path, sizeof(path), "%s/%s", name, entry->d_name);
+            printf("%*s[%s]\n", indent, "", entry->d_name);
+            listdir(path, indent + 2);
+        } else {
+            printf("%*s- %s\n", indent, "", entry->d_name);
+        }
+    }
+    closedir(dir);
+}
 
 
 
