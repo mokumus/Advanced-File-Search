@@ -19,13 +19,14 @@ void print_usage(void);
 void print_inputs(void);
 int input_exists();
 
-
+// Main functionality functions
+void traverse_dir(char *name, char* target, int indent);
 
 // Helper & Misc. functions
 void to_lower_case(char* str);
 int str_cmp(char* str1, char* str2);
 
-void listdir(const char *name, int indent);
+
 
 // Globals
 char _W[MAX_PATH],
@@ -94,7 +95,7 @@ int main(int argc, char* argv[])  {
     char str2[] = "Mraz";
     printf("result: %d\n", str_cmp(str1, str2));
 
-    listdir(_W, 0);
+    traverse_dir(_W,"file+lost", 0);
 
     return 0;
 }
@@ -150,7 +151,7 @@ void to_lower_case(char* str){
 	}
 }
 
-void listdir(const char *name, int indent)
+void traverse_dir(char *name, char* target, int indent)
 {
     DIR *dir;
     struct dirent *entry;
@@ -158,12 +159,17 @@ void listdir(const char *name, int indent)
     if (!(dir = opendir(name)))
         return;
 
-    if(indent == 0)
-    	printf("target: %s\n",name);
+    if(indent == 0){
+    	printf("target name: %s\n", target);
+    	printf("target folder: %s\n",name);
+    }
+
 
     while ((entry = readdir(dir)) != NULL) {
         if (entry->d_type == DT_DIR) {
             char path[1024];
+
+            // Ignore special name-inode maps(Hard-links)
             if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
                 continue;
             snprintf(path, sizeof(path), "%s/%s", name, entry->d_name);
@@ -172,7 +178,7 @@ void listdir(const char *name, int indent)
         		printf("-");
         	}
             printf("%s\n",entry->d_name);
-            listdir(path, indent + 2);
+            traverse_dir(path, target, indent + 2);
         } else {
         	printf("|");
         	for(int i = 0; i < indent+2; i++){
