@@ -94,7 +94,7 @@ int main(int argc, char* argv[])  {
     char str2[] = "Mraz";
     printf("result: %d\n", str_cmp(str1, str2));
 
-    listdir(".", 0);
+    listdir(_W, 0);
 
     return 0;
 }
@@ -158,16 +158,27 @@ void listdir(const char *name, int indent)
     if (!(dir = opendir(name)))
         return;
 
+    if(indent == 0)
+    	printf("target: %s\n",name);
+
     while ((entry = readdir(dir)) != NULL) {
         if (entry->d_type == DT_DIR) {
             char path[1024];
             if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
                 continue;
             snprintf(path, sizeof(path), "%s/%s", name, entry->d_name);
-            printf("%*s[%s]\n", indent, "", entry->d_name);
+            printf("|");
+            for(int i = 0; i < indent+2; i++){
+        		printf("-");
+        	}
+            printf("%s\n",entry->d_name);
             listdir(path, indent + 2);
         } else {
-            printf("%*s- %s\n", indent, "", entry->d_name);
+        	printf("|");
+        	for(int i = 0; i < indent+2; i++){
+        		printf("-");
+        	}
+            printf("%s\n", entry->d_name);
         }
     }
     closedir(dir);
