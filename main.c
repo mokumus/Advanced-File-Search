@@ -21,6 +21,7 @@ int input_exists();
 
 // Main functionality functions
 void traverse_dir(char *name, char* target, int indent);
+int regex_plus(char* regex, char* input);
 
 // Helper & Misc. functions
 void to_lower_case(char* str);
@@ -41,8 +42,13 @@ int _B = -1,		// File size in bytes
 int opt_B = 0, opt_T = 0, opt_P = 0, opt_L = 0, opt_F = 0, opt_W;
 
 int main(int argc, char* argv[])  {
+	// Local variables
 	int option;
-    
+	char str1[] = "file+name+.txt";
+    char str2[] = "fileName.TXT";
+
+
+	// Input parsing & validation =======================
     while((option = getopt(argc, argv, "f:b:t:p:l:w:")) != -1){ //get option from the getopt() method
         switch(option){
             case 'b':
@@ -78,7 +84,6 @@ int main(int argc, char* argv[])  {
     	printf("No search directory provided\n");
     	print_usage();
     	exit(EXIT_FAILURE);
-
     }
 
     for(; optind < argc; optind++) //when some extra arguments are passed
@@ -89,13 +94,17 @@ int main(int argc, char* argv[])  {
     	print_usage();
     	exit(EXIT_FAILURE);
     }
+    // Input parsing & validation  END =======================
 
     print_inputs();
-    char str1[] = "mrAz";
-    char str2[] = "Mraz";
-    printf("result: %d\n", str_cmp(str1, str2));
 
-    traverse_dir(_W,"file+lost", 0);
+    /*
+
+    printf("result: %d\n", str_cmp(str1, str2));
+	traverse_dir(_W,"file+lost", 0);
+	*/
+
+	regex_plus(str1,str2);
 
     return 0;
 }
@@ -191,6 +200,19 @@ void traverse_dir(char *name, char* target, int indent)
 }
 
 
+
+/*
+	@regex: file+name+.txt
+	@input: FileName+.txt
+	@return: 0 on success
+*/
+int regex_plus(char* regex, char* input){
+	printf("regex: %s\n", regex);
+	printf("input: %s\n", input);
+
+
+	return 0;
+}
 
 
 
