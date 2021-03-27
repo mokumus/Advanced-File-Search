@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>  
 #include <unistd.h>  
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
 #include <string.h>
@@ -20,8 +21,9 @@ void print_inputs(void);
 int input_exists();
 
 // Main functionality functions
-void traverse_dir(char *name, char* target, int indent);
+void traverse_dir(char *name, int indent);
 int regex_plus(char* regex, char* input);
+int check_file(struct dirent * entry);
 
 // Helper & Misc. functions
 void to_lower_case(char* str);
@@ -40,6 +42,9 @@ int _B = -1,		// File size in bytes
     _L = -1;		// File links(#)
 
 int opt_B = 0, opt_T = 0, opt_P = 0, opt_L = 0, opt_F = 0, opt_W;
+
+int dfd = -1;
+int matches = 0;
 
 int main(int argc, char* argv[])  {
 	// Local variables
@@ -96,15 +101,16 @@ int main(int argc, char* argv[])  {
     }
     // Input parsing & validation  END =======================
 
-    print_inputs();
+    //print_inputs();
 
-    /*
+	traverse_dir(_W, 0);
+	if(matches == 1)
+		printf("File found!\n");
+	else
+		printf("No file found\n");
+	
 
-    printf("result: %d\n", str_cmp(str1, str2));
-	traverse_dir(_W,"file+lost", 0);
-	*/
-
-	regex_plus(str1,str2);
+	//regex_plus(str1,str2);
 
     return 0;
 }
@@ -160,43 +166,58 @@ void to_lower_case(char* str){
 	}
 }
 
-void traverse_dir(char *name, char* target, int indent)
-{
-    DIR *dir;
-    struct dirent *entry;
+void traverse_dir(char *name, int indent) {
+	DIR *dir;
+	struct dirent *entry;
 
-    if (!(dir = opendir(name)))
-        return;
+	if (!(dir = opendir(name)))
+		return;
 
-    if(indent == 0){
-    	printf("target name: %s\n", target);
-    	printf("target folder: %s\n",name);
-    }
+	
+
+	if (indent == 0)
+		printf("%s\n", name);
+	
 
 
-    while ((entry = readdir(dir)) != NULL) {
-        if (entry->d_type == DT_DIR) {
-            char path[1024];
+	while ((entry = readdir(dir)) != NULL) {
+		if (entry->d_type == DT_DIR) {
+			char path[1024];
 
-            // Ignore special name-inode maps(Hard-links)
-            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
-                continue;
-            snprintf(path, sizeof(path), "%s/%s", name, entry->d_name);
-            printf("|");
-            for(int i = 0; i < indent+2; i++){
-        		printf("-");
-        	}
-            printf("%s\n",entry->d_name);
-            traverse_dir(path, target, indent + 2);
-        } else {
-        	printf("|");
-        	for(int i = 0; i < indent+2; i++){
-        		printf("-");
-        	}
-            printf("%s\n", entry->d_name);
-        }
-    }
-    closedir(dir);
+			// Ignore special name-inode maps(Hard-links)
+			if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+				continue;
+			snprintf(path, sizeof(path), "%s/%s", name, entry->d_name);
+			printf("|");
+			for (int i = 0; i < indent + 2; i++)
+				printf("-");
+
+			//printf("%s\n", entry->d_name);
+			dfd = dirfd(dir);
+			if (check_file(entry) == 1){
+				matches = 1;
+				return;
+			}
+
+
+			traverse_dir(path, indent + 2);
+		} 
+
+		else {
+			printf("|");
+			for (int i = 0; i < indent + 2; i++)
+				printf("-");
+
+			//printf("%s\n", entry->d_name);
+			dfd = dirfd(dir);
+			if (check_file(entry) == 1){
+				matches = 1;
+				return;
+			}
+		}
+	}
+	
+	closedir(dir);
 }
 
 
@@ -209,33 +230,63 @@ void traverse_dir(char *name, char* target, int indent)
 int regex_plus(char* regex, char* input){
 	printf("regex: %s\n", regex);
 	printf("input: %s\n", input);
-
-
 	return 0;
 }
 
+int check_file(struct dirent * entry){
+	struct stat sb;
+	int current_sum = 0;
+	int target_sum = opt_L + opt_P + opt_T + opt_F + opt_B;
 
+	printf("%s ", entry->d_name);
 
+	if (dfd != -1 && fstatat(dfd, entry->d_name, &sb, 0) == -1) {
+        perror("stat");
+        exit(EXIT_FAILURE);
+    }
+    dfd = -1;
 
+	if(opt_T == 1){
+		switch(entry->d_type){
+			case DT_DIR:
+				printf("{Directory} ");
+				if(_T == 'd') current_sum++;
+				break;
+			case DT_REG:
+				printf("{Regular file} ");
+				if(_T == 'f') current_sum++;
+				break;
+			case DT_FIFO:
+				printf("{Pipe/FIFO} ");
+				if(_T == 'p') current_sum++;
+				break;
+			case DT_SOCK:
+				printf("{Socket} ");
+				if(_T == 's') current_sum++;
+				break;
+			case DT_CHR:
+				printf("{Character device} ");
+				if(_T == 'c') current_sum++;
+				break;			
+			case DT_BLK:
+				printf("{Block device} ");
+				if(_T == 'b') current_sum++;
+				break;	
+			case DT_LNK:
+				printf("{Symbolic link} ");
+				if(_T == 'l') current_sum++;
+				break;	
+			default:
+				printf("{Unkown type} ");
+				break;	
+		}
+	}
 
+	if(opt_B == 1) {
+		printf("{%lld bytes}",(long long) sb.st_size);
+		if(_B == sb.st_size) current_sum++;
+	}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	printf("\n");
+	return current_sum == target_sum;
+}
