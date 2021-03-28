@@ -5,12 +5,16 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <string.h>
+#include <signal.h> 
 
-
-#define MAX_PATH 256   // Input file path
+#define MAX_PATH 1024   // Input file path
 #define PERMS_LEN 10	// # of file permissions
 
 #define errExit(msg) do{ perror(msg); exit(EXIT_FAILURE); } while(0)
+
+
+#define RESET   "\033[0m"
+#define BOLDRED     "\033[1m\033[31m"      /* Bold Red */
 
 
 // Function Prototypes
@@ -29,28 +33,31 @@ int check_file(struct dirent * entry);
 void to_lower_case(char* str);
 int str_cmp(char* str1, char* str2);
 int count_chars(const char* input, const char target);
-
+void sigint_handler(int sig_no);
 
 // Globals
+sig_atomic_t exit_requested = 0;    //SIGINT FLAG
+
 char _W[MAX_PATH],
 	 _F[MAX_PATH],		// File name regex
      _P[PERMS_LEN], 	// File permissions
      curr_P[PERMS_LEN],	// Current files permissions
      _T = 'x';			// File type
 
-
 int _B = -1,		// File size in bytes
     _L = -1;		// File links(#)
 
-int opt_B = 0, opt_T = 0, opt_P = 0, opt_L = 0, opt_F = 0, opt_W;
+int opt_B = 0, opt_T = 0, opt_P = 0, opt_L = 0, opt_F = 0, opt_W = 0;
 
 int dfd = -1;
 int matches = 0;
+
 
 int main(int argc, char* argv[])  {
 	// Local variables
 	int option;
 
+	signal(SIGINT, sigint_handler);
 
 	// Input parsing & validation =======================
     while((option = getopt(argc, argv, "f:b:t:p:l:w:")) != -1){ //get option from the getopt() method
@@ -99,14 +106,15 @@ int main(int argc, char* argv[])  {
     	exit(EXIT_FAILURE);
     }
     // Input parsing & validation  END =======================
-
-    //print_inputs();
-
-
     
 	traverse_dir(_W, 0);
-	if(matches == 1)
+	if(exit_requested){
+		printf("\nExit request by the user. Signal: %d\n",exit_requested);
+		exit(EXIT_FAILURE);
+	}
+	if(matches == 1){
 		printf("File found!\n");
+	}
 	else
 		printf("No file found\n");
 	
@@ -144,8 +152,6 @@ int input_exists(){
 }
 
 int str_cmp(char* str1, char* str2){
-
-
 	while(*str1){
 		if(*str1 != *str2)
 			break;
@@ -178,9 +184,9 @@ void traverse_dir(char *name, int indent) {
 	
 
 
-	while ((entry = readdir(dir)) != NULL) {
+	while ((entry = readdir(dir)) != NULL && !exit_requested) {
 		if (entry->d_type == DT_DIR) {
-			char path[1024];
+			char path[MAX_PATH];
 
 			// Ignore special name-inode maps(Hard-links)
 			if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
@@ -190,13 +196,11 @@ void traverse_dir(char *name, int indent) {
 			for (int i = 0; i < indent + 2; i++)
 				printf("-");
 
-			//printf("%s\n", entry->d_name);
 			dfd = dirfd(dir);
 			if (check_file(entry) == 1){
 				matches = 1;
 				return;
 			}
-
 
 			traverse_dir(path, indent + 2);
 		} 
@@ -238,33 +242,22 @@ int count_chars(const char* input, const char target){
 int regex_plus( const char* regex, const char* input){
 	int n = 0;
 	int n_token = count_chars(regex, '+') + 1;
-	int current_token = 0;
    	char *token = strdup(regex);
-
-   	//printf("input: %s\n", input);
-
 
    	token = strtok(token, "+");
    	for(int i = 0; i < n_token-1; i++){
    		int len = strlen(token);
-   		//printf("%s %d : %s\n", token, len, &input[n]);
    		
    		if(strncmp(token, &input[n], len) == 0){
    			n += len;
-   			
-   			while(input[n] == token[len-1]){
-   				//printf("input[n+1]: %c\n", input[n]);
+   			while(input[n] == token[len-1])
    				n++;
-   			}
    		}
-
    		token = strtok(NULL, "+");
    	}
 
-   	//printf( "%s\n", token);
    	if(strcmp(token, &input[n]) == 0)
    		return 0;
-
 
 	return -1;
 }
@@ -274,52 +267,51 @@ int check_file(struct dirent * entry){
 	int current_sum = 0;
 	int target_sum = opt_L + opt_P + opt_T + opt_F + opt_B;
 
-	printf("%s ", entry->d_name);
+	
 
 	if (dfd != -1 && fstatat(dfd, entry->d_name, &sb, 0) == -1) {
-        perror("stat");
-        exit(EXIT_FAILURE);
+        return 0;
     }
     dfd = -1;
 
 	if(opt_T == 1){
 		switch(entry->d_type){
 			case DT_DIR:
-				printf("{Directory} ");
+				//if(matches) printf("{Directory} ");
 				if(_T == 'd') current_sum++;
 				break;
 			case DT_REG:
-				printf("{Regular file} ");
+				//if(matches) printf("{Regular file} ");
 				if(_T == 'f') current_sum++;
 				break;
 			case DT_FIFO:
-				printf("{Pipe/FIFO} ");
+				//if(matches)printf("{Pipe/FIFO} ");
 				if(_T == 'p') current_sum++;
 				break;
 			case DT_SOCK:
-				printf("{Socket} ");
+				//if(matches) printf("{Socket} ");
 				if(_T == 's') current_sum++;
 				break;
 			case DT_CHR:
-				printf("{Character device} ");
+				//if(matches) printf("{Character device} ");
 				if(_T == 'c') current_sum++;
 				break;			
 			case DT_BLK:
-				printf("{Block device} ");
+				//if(matches) printf("{Block device} ");
 				if(_T == 'b') current_sum++;
 				break;	
 			case DT_LNK:
-				printf("{Symbolic link} ");
+				//if(matches) printf("{Symbolic link} ");
 				if(_T == 'l') current_sum++;
 				break;	
 			default:
-				printf("{Unkown type} ");
+				//if(matches) printf("{Unkown type} ");
 				break;	
 		}
 	}
 
 	if(opt_B == 1) {
-		printf("{%lld bytes}",(long long) sb.st_size);
+		//if(matches) printf("{%lld bytes}",(long long) sb.st_size);
 		if(_B == sb.st_size) current_sum++;
 	}
 
@@ -336,19 +328,31 @@ int check_file(struct dirent * entry){
         curr_P[8] = (perm & S_IXOTH) ? 'x' : '-';
         curr_P[9] = '\0';
 
-        printf("{%s} ", curr_P);
+        //if(matches) printf("{%s} ", curr_P);
         if(str_cmp(curr_P, _P) == 0) current_sum++;
 	}
 
 	if(opt_L == 1) {
- 		printf("{%ld} ", sb.st_nlink);
-        
+ 		//if(matches) printf("{%ld} ", sb.st_nlink);
+        if(_L == sb.st_nlink) current_sum++;
 	}
 
 	if(opt_F == 1) {
-		printf("{regex: %s} ", _F);
-	}
+		char * lower_case_file_name= strdup(entry->d_name);
+		to_lower_case(lower_case_file_name);
+		//if(matches) printf("{regex:%s} ", _F);
+		if(regex_plus(_F, lower_case_file_name) == 0) current_sum++;
+		free(lower_case_file_name);
 
-	printf("\n");
+	}
+	if(current_sum == target_sum)
+		printf(BOLDRED   "%s \n" RESET, entry->d_name);
+	else
+		printf("%s \n", entry->d_name);
+	
 	return current_sum == target_sum;
+}
+
+void sigint_handler(int sig_no) {
+	exit_requested = sig_no;
 }
