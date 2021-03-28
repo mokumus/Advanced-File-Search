@@ -7,7 +7,7 @@
 #include <string.h>
 
 
-#define MAX_PATH 255   // Input file path
+#define MAX_PATH 256   // Input file path
 #define PERMS_LEN 10	// # of file permissions
 
 #define errExit(msg) do{ perror(msg); exit(EXIT_FAILURE); } while(0)
@@ -22,20 +22,21 @@ int input_exists();
 
 // Main functionality functions
 void traverse_dir(char *name, int indent);
-int regex_plus(char* regex, char* input);
+int regex_plus(const char* regex, const char* input);
 int check_file(struct dirent * entry);
 
 // Helper & Misc. functions
 void to_lower_case(char* str);
 int str_cmp(char* str1, char* str2);
-
+int count_chars(const char* input, const char target);
 
 
 // Globals
 char _W[MAX_PATH],
-	 _F[MAX_PATH],	// File name regex
-     _P[PERMS_LEN],	// File permissions
-     _T = 'x';		// File type
+	 _F[MAX_PATH],		// File name regex
+     _P[PERMS_LEN], 	// File permissions
+     curr_P[PERMS_LEN],	// Current files permissions
+     _T = 'x';			// File type
 
 
 int _B = -1,		// File size in bytes
@@ -49,8 +50,6 @@ int matches = 0;
 int main(int argc, char* argv[])  {
 	// Local variables
 	int option;
-	char str1[] = "file+name+.txt";
-    char str2[] = "fileName.TXT";
 
 
 	// Input parsing & validation =======================
@@ -103,14 +102,14 @@ int main(int argc, char* argv[])  {
 
     //print_inputs();
 
+
+    
 	traverse_dir(_W, 0);
 	if(matches == 1)
 		printf("File found!\n");
 	else
 		printf("No file found\n");
 	
-
-	//regex_plus(str1,str2);
 
     return 0;
 }
@@ -145,8 +144,7 @@ int input_exists(){
 }
 
 int str_cmp(char* str1, char* str2){
-	to_lower_case(str1);
-	to_lower_case(str2);
+
 
 	while(*str1){
 		if(*str1 != *str2)
@@ -220,6 +218,16 @@ void traverse_dir(char *name, int indent) {
 	closedir(dir);
 }
 
+int count_chars(const char* input, const char target){
+	int i = 0, sum = 0;
+
+	while(input[i] != '\0'){
+		if(input[i] == target)
+			sum++;
+		i++;
+	}
+	return sum;
+}
 
 
 /*
@@ -227,10 +235,38 @@ void traverse_dir(char *name, int indent) {
 	@input: FileName+.txt
 	@return: 0 on success
 */
-int regex_plus(char* regex, char* input){
-	printf("regex: %s\n", regex);
-	printf("input: %s\n", input);
-	return 0;
+int regex_plus( const char* regex, const char* input){
+	int n = 0;
+	int n_token = count_chars(regex, '+') + 1;
+	int current_token = 0;
+   	char *token = strdup(regex);
+
+   	//printf("input: %s\n", input);
+
+
+   	token = strtok(token, "+");
+   	for(int i = 0; i < n_token-1; i++){
+   		int len = strlen(token);
+   		//printf("%s %d : %s\n", token, len, &input[n]);
+   		
+   		if(strncmp(token, &input[n], len) == 0){
+   			n += len;
+   			
+   			while(input[n] == token[len-1]){
+   				//printf("input[n+1]: %c\n", input[n]);
+   				n++;
+   			}
+   		}
+
+   		token = strtok(NULL, "+");
+   	}
+
+   	//printf( "%s\n", token);
+   	if(strcmp(token, &input[n]) == 0)
+   		return 0;
+
+
+	return -1;
 }
 
 int check_file(struct dirent * entry){
@@ -285,6 +321,32 @@ int check_file(struct dirent * entry){
 	if(opt_B == 1) {
 		printf("{%lld bytes}",(long long) sb.st_size);
 		if(_B == sb.st_size) current_sum++;
+	}
+
+	if(opt_P == 1) {
+		mode_t perm = sb.st_mode;
+        curr_P[0] = (perm & S_IRUSR) ? 'r' : '-';
+        curr_P[1] = (perm & S_IWUSR) ? 'w' : '-';
+        curr_P[2] = (perm & S_IXUSR) ? 'x' : '-';
+        curr_P[3] = (perm & S_IRGRP) ? 'r' : '-';
+        curr_P[4] = (perm & S_IWGRP) ? 'w' : '-';
+        curr_P[5] = (perm & S_IXGRP) ? 'x' : '-';
+        curr_P[6] = (perm & S_IROTH) ? 'r' : '-';
+        curr_P[7] = (perm & S_IWOTH) ? 'w' : '-';
+        curr_P[8] = (perm & S_IXOTH) ? 'x' : '-';
+        curr_P[9] = '\0';
+
+        printf("{%s} ", curr_P);
+        if(str_cmp(curr_P, _P) == 0) current_sum++;
+	}
+
+	if(opt_L == 1) {
+ 		printf("{%ld} ", sb.st_nlink);
+        
+	}
+
+	if(opt_F == 1) {
+		printf("{regex: %s} ", _F);
 	}
 
 	printf("\n");
